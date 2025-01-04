@@ -1,0 +1,46 @@
+name: Build and Release Deno Executable
+
+on:
+  push:
+    tags:
+      - "v*.*.*"
+
+jobs:
+  build:
+    name: Build Executable
+    runs-on: ubuntu-latest
+
+    steps:
+      # Checkout the repository
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      # Install Deno
+      - name: Setup Deno
+        uses: denoland/setup-deno@v2
+        with:
+          deno-version: v2.x # Use the latest Deno stable version
+
+      # Build executables for different platforms
+      - name: Build executables
+        run: |
+          deno compile --output dist/quick-serve-linux main.ts
+          deno compile --target x86_64-pc-windows-msvc --output dist/quick-serve-windows.exe main.ts
+          deno compile --target x86_64-apple-darwin --output dist/quick-serve-macos main.ts
+
+      # Archive the build artifacts
+      - name: Archive artifacts
+        run: |
+          mkdir -p dist
+          zip -j dist/quick-serve-linux.zip dist/quick-serve-linux
+          zip -j dist/quick-serve-windows.zip dist/quick-serve-windows.exe
+          zip -j dist/quick-serve-macos.zip dist/quick-serve-macos
+
+      # Upload artifacts to the release
+      - name: Upload Release Artifacts
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            dist/quick-serve-linux.zip
+            dist/quick-serve-windows.zip
+            dist/quick-serve-macos.zip
