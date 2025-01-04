@@ -1,0 +1,84 @@
+name: Build and Release Deno Executable
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+jobs:
+  build:
+    name: Build Executable
+    runs-on: ubuntu-latest
+
+    steps:
+      # Checkout the repository
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      # Install Deno
+      - name: Setup Deno
+        uses: denoland/setup-deno@v2
+        with:
+          deno-version: v2.x # Use the latest Deno stable version
+
+      # Build executables for different platforms
+      - name: Build executables
+        run: |
+          deno compile --output dist/quick-serve-linux main.ts
+          deno compile --target x86_64-pc-windows-msvc --output dist/quick-serve-windows.exe main.ts
+          deno compile --target x86_64-apple-darwin --output dist/quick-serve-macos main.ts
+
+      # Archive the build artifacts
+      - name: Archive artifacts
+        run: |
+          mkdir -p dist
+          zip -j dist/quick-serve-linux.zip dist/quick-serve-linux
+          zip -j dist/quick-serve-windows.zip dist/quick-serve-windows.exe
+          zip -j dist/quick-serve-macos.zip dist/quick-serve-macos
+      
+      - name: version
+        run: echo "::set-output name=version::$(./bin/azblogfilter --version)"
+        id: version
+      
+      - name: Create Release
+        id: create_release
+        uses: actions/create-release@v1
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        with:
+          tag_name: ${{ github.ref }}
+          release_name: Release ${{ github.ref }}
+          draft: false
+          prerelease: false
+
+
+      # Upload artifacts to the release
+      - name: Upload Release Artifacts
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        with:
+          upload_url: ${{ steps.create_release.outputs.upload_url }}
+          asset_path: dist/quick-serve-linux.zip
+          asset_name: quick-serve-linux.zip
+          asset_content_type: application/zip
+
+      - name: Upload Windows Executable
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        with:
+          upload_url: ${{ steps.create_release.outputs.upload_url }}
+          asset_path: dist/quick-serve-windows.zip
+          asset_name: quick-serve-windows.zip
+          asset_content_type: application/zip
+
+      - name: Upload MacOS Executable
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        with:
+          upload_url: ${{ steps.create_release.outputs.upload_url }}
+          asset_path: dist/quick-serve-macos.zip
+          asset_name: quick-serve-macos.zip
+          asset_content_type: application/zip
